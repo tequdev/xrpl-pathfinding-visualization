@@ -155,7 +155,6 @@ export const PathFlow: FC<Props> = ({ path, offerChanges, accountChanges }) => {
               // type: 1(account)(rippling)
               const currency = cur_currency.currency;
               if (accountChanges[step.account]) {
-                console.log(accountChanges);
                 const getChange = (
                   changes: AccountChange[string],
                   type: "plus" | "minus"

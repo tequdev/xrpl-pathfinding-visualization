@@ -2,13 +2,18 @@
 
 import { useRef } from "react";
 import { useRouter } from "next/navigation";
+import { isValidAddress } from "xrpl";
 
 export default function Home() {
   const router = useRouter();
   const hashRef = useRef<HTMLInputElement>(null);
 
   const go = () => {
-    router.push(`/${hashRef.current!.value}`);
+    if (isValidAddress(hashRef.current!.value)){
+      router.push(`/account/${hashRef.current!.value}`);
+    } else {
+      router.push(`/${hashRef.current!.value}`);
+    }
   };
 
   return (
@@ -20,7 +25,7 @@ export default function Home() {
             ref={hashRef}
             type="text"
             className="input rounded-r-none min-w-[25rem]"
-            placeholder="Enter Txn hash"
+            placeholder="Enter Txn hash/Account rAddress"
           />
           <button className="btn btn-primary px-8 rounded-l-none" onClick={go}>
             Go

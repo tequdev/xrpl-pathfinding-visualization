@@ -13,12 +13,12 @@ export const parseAccount = (account: string) => {
 }
 
 // 通貨名の取得
-export const parseCurrencyName = (currency: Amount | Currency,option?:{forDisp:boolean}) => {
+export const parseCurrencyName = (currency: Amount | Currency, option?: { forDisp: boolean }) => {
   if (typeof currency === "string" || currency.currency === "XRP") return "XRP";
-  if(option?.forDisp === true)
-  // @ts-ignore
+  if (option?.forDisp === true)
+    // @ts-ignore
     return convertCurrencyCode(currency.currency) + '.' + parseAccount(currency.issuer!)
-  else  
+  else
     return currency.currency
 };
 
@@ -60,6 +60,7 @@ export const getAccountBalanceChangesAmount = (
   return {
     before: change.previous,
     after: change.final,
+    change: change.change,
   };
 
 };
