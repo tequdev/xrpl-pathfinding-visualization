@@ -58,7 +58,7 @@ export default function Path({ data, isModal = false }: Props) {
   const destination_amount = data.Amount;
   return (
     <main className={`flex ${isModal ? '' : 'min-h-[100vh] justify-between items-center'} flex-col  py-4`}>
-      <div className={`${isModal ? '' : 'mt-12'}`} style={isModal ? { width: "100vh", height: "90vh" } : { width: "100%", height: "90%" }}>
+      <div className={`${isModal ? '' : 'mt-12'}`} style={{ width: "100vh", height: "90vh" }}>
         <PathFlow
           path={{ source_amount, destination_amount, paths_computed: paths }}
           accountChanges={accountChanges}
