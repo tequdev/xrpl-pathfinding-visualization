@@ -20,7 +20,7 @@ import "reactflow/dist/style.css";
 import { PathFindPathOption } from "xrpl";
 import BigNumber from "bignumber.js";
 
-type PathNode = Node<{ label: string }>;
+type PathNode = Node<{ label: string | JSX.Element }>;
 type PathEdge = Edge;
 
 type OfferChange = {
@@ -49,7 +49,7 @@ type Props = {
 };
 
 export const PathFlow: FC<Props> = ({ path, offerChanges, accountChanges }) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState<{ label: string }>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<{ label: string | JSX.Element }>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<any>([]);
 
   useEffect(() => {
@@ -240,7 +240,15 @@ export const PathFlow: FC<Props> = ({ path, offerChanges, accountChanges }) => {
               const dest = parseCurrencyName(step as Currency, {
                 forDisp: true,
               });
-              return `${source}/${dest}`;
+              const additionalContext = (() => {
+                const hasAMM = !!amm
+                const hasOffer = !!offer
+                if (hasAMM && hasOffer) return "AMM & Offer"
+                if (hasAMM) return "AMM"
+                if (hasOffer) return "Offer"
+                return "　"
+              })()
+              return <div>{source}/{dest}<br /><span style={{ fontSize: '7pt' }}>{additionalContext}</span></div>;
             }
             if (step.account) {
               // type: 1(account)(rippling)
@@ -290,7 +298,7 @@ export const PathFlow: FC<Props> = ({ path, offerChanges, accountChanges }) => {
               } else {
                 edge.label = edges.find((e) => e.target === id)?.label || "0";
               }
-              return parseAccount(step.account);
+              return <div>{parseAccount(step.account)} <br /><span style={{ fontSize: '7pt'}}>Rippling</span></div>;
             }
             return parseCurrencyName(step as Currency, { forDisp: true });
           };
