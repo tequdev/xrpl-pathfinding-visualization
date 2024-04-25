@@ -8,7 +8,7 @@ import ReactFlow, {
   Edge,
   Connection,
 } from "reactflow";
-import { Currency, IssuedCurrencyAmount } from "xrpl/dist/npm/models/common";
+import { Balance, Currency } from "xrpl/dist/npm/models/common";
 
 import {
   parseAccount,
@@ -18,16 +18,22 @@ import {
 
 import "reactflow/dist/style.css";
 import { PathFindPathOption } from "xrpl";
+import BigNumber from "bignumber.js";
 
 type PathNode = Node<{ label: string }>;
 type PathEdge = Edge;
 
 type OfferChange = {
-  takerPaid: IssuedCurrencyAmount;
-  takerGot: IssuedCurrencyAmount;
+  takerPaid: Balance;
+  takerGot: Balance;
+};
+type AMMChange = {
+  ammGot: Balance;
+  ammPaid: Balance;
 };
 type AccountChange = {
   [key: string]: {
+    is_amm: boolean;
     currency: string;
     issuer: string | null;
     previous: string;
@@ -121,29 +127,114 @@ export const PathFlow: FC<Props> = ({ path, offerChanges, accountChanges }) => {
           ) => {
             if (step.issuer || step.currency) {
               // type: 16(currency) or type: 32(issuer) or type: 48(issuer+currency)
+              const compare = (a: any, b: any) =>
+                (!a.issuer && !b.issuer || a.issuer === b.issuer) && a.currency === b.currency;
               const offer = offerChanges.find((offerChange) => {
-                const compare = (a: any, b: any) =>
-                  a.issuer === b.issuer && a.currency === b.currency;
                 return (
                   compare(offerChange.takerPaid, cur_currency) &&
                   compare(offerChange.takerGot, step)
                 );
               });
+              const amm = (() => {
+                const keys = Object.keys(accountChanges);
+                const amm_accounts = keys.filter((key) => {
+                  return accountChanges[key].find((change) => change.is_amm)
+                })
+                const account = amm_accounts.find((account) => {
+                  return accountChanges[account].every((change) => {
+                    return compare(change, step) || compare(change, cur_currency)
+                  })
+                })
+                if (!account) return undefined
+                const _ammGot = accountChanges[account].find((change) => compare(change, cur_currency))!
+                const _ammPaid = accountChanges[account].find((change) => compare(change, step))!
+                return {
+                  ammGot: {
+                    currency: _ammGot.currency,
+                    issuer: _ammGot.issuer || undefined,
+                    value: _ammGot.change,
+                  },
+                  ammPaid: {
+                    currency: _ammPaid.currency,
+                    issuer: _ammPaid.issuer || undefined,
+                    value: _ammPaid.change,
+                  },
+                }
+              })();
 
-              const getEdgeLabel = (amount: IssuedCurrencyAmount) => {
-                const { currency, issuer, value } = amount;
-                const currencyName = parseCurrencyName(
-                  { currency, issuer } as Currency,
-                  { forDisp: true }
-                );
-                return `${value} ${currencyName}`;
+              const getEdgeLabel = (offer: OfferChange | undefined, amm: AMMChange | undefined) => {
+                if (!offer && !amm) return { got: "0", paid: "0" }
+                let nodeGotCurrencyName = ""
+                let nodeGotValue = ""
+                let nodePaidCurrencyName = ""
+                let nodePaidValue = ""
+                if (offer) {
+                  {
+                    const { currency, issuer, value } = offer.takerPaid
+                    const currencyName = parseCurrencyName(
+                      { currency, issuer } as Currency,
+                      { forDisp: true }
+                    );
+                    nodeGotCurrencyName = currencyName
+                    nodeGotValue = value
+                  }
+                  {
+                    const { currency, issuer, value } = offer.takerGot
+                    const currencyName = parseCurrencyName(
+                      { currency, issuer } as Currency,
+                      { forDisp: true }
+                    );
+                    nodePaidCurrencyName = currencyName
+                    nodePaidValue = value
+                  }
+                }
+                if (amm) {
+                  {
+                    const { currency, issuer, value } = amm.ammGot
+                    const currencyName = parseCurrencyName(
+                      { currency, issuer } as Currency,
+                      { forDisp: true }
+                    );
+                    if (nodeGotCurrencyName !== "") {
+                      if (nodeGotCurrencyName !== currencyName) throw new Error("currencyName is different")
+                    } else {
+                      nodeGotCurrencyName = currencyName
+                    }
+                    if (nodeGotValue === "") {
+                      nodeGotValue = value
+                    } else {
+                      nodeGotValue = BigNumber(nodeGotValue).plus(value).toString()
+                    }
+                  }
+                  {
+                    const { currency, issuer, value } = amm.ammPaid
+                    const currencyName = parseCurrencyName(
+                      { currency, issuer } as Currency,
+                      { forDisp: true }
+                    );
+                    if (nodePaidCurrencyName !== "") {
+                      if (nodePaidCurrencyName !== currencyName) throw new Error("currencyName is different")
+                    } else {
+                      nodePaidCurrencyName = currencyName
+                    }
+                    if (nodePaidValue === "") {
+                      nodePaidValue = value
+                    } else {
+                      nodePaidValue = BigNumber(nodePaidValue).plus(value).toString()
+                    }
+                  }
+                }
+                return {
+                  got: `${nodeGotValue.replace("-", "")} ${nodeGotCurrencyName}`,
+                  paid: `${nodePaidValue.replace("-", "")} ${nodePaidCurrencyName}`
+                }
               };
               edges = edges.map((edge) => {
                 if (edge.target !== id) return edge;
-                edge.label = offer ? getEdgeLabel(offer.takerPaid) : "0";
+                edge.label = getEdgeLabel(offer, amm).got;
                 return edge;
               });
-              edge.label = offer ? getEdgeLabel(offer.takerGot) : "0";
+              edge.label = getEdgeLabel(offer, amm).paid;
 
               const source = parseCurrencyName(cur_currency, { forDisp: true });
               const dest = parseCurrencyName(step as Currency, {
@@ -197,7 +288,7 @@ export const PathFlow: FC<Props> = ({ path, offerChanges, accountChanges }) => {
                   edge.label = "0";
                 }
               } else {
-                edge.label = edges.find((e) => e.target === id)?.label ||  "0";
+                edge.label = edges.find((e) => e.target === id)?.label || "0";
               }
               return parseAccount(step.account);
             }
