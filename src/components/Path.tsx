@@ -9,12 +9,23 @@ type Props = {
 
 export default function Path({ data, isModal = false }: Props) {
   if (data.TransactionType !== "Payment") {
-    return <>{data.TransactionType}</>;
+    return (
+      <>
+        <div>{data.TransactionType}</div>
+        <p>Only Payment transactions are supported. </p>
+      </>
+    );
   }
 
   const paths = data.Paths;
   if (!paths || (data.meta as TransactionMetadata).TransactionResult !== "tesSUCCESS") {
-    return <></>;
+    return (
+      <>
+        <p>
+          Paths Field is not used or the transaction failed.
+        </p>
+      </>
+    );
   }
 
   // 送信者
