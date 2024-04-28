@@ -27,6 +27,6 @@
     "typescript": "5.1.6",
     "xrpl": "^2.9.1",
     "xrpl-client": "^2.1.0",
-    "xrpl-tx-path-parser": "^1.0.3"
+    "xrpl-tx-path-parser": "^1.0.4"
   }
 }

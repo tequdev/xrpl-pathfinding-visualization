@@ -63,8 +63,8 @@ importers:
         specifier: ^2.1.0
         version: 2.1.0
       xrpl-tx-path-parser:
-        specifier: ^1.0.3
-        version: 1.0.3(bufferutil@4.0.7)(utf-8-validate@5.0.10)
+        specifier: ^1.0.4
+        version: 1.0.4(bufferutil@4.0.7)(utf-8-validate@5.0.10)
 
 packages:
 
@@ -2008,8 +2008,8 @@ packages:
   xrpl-client@2.1.0:
     resolution: {integrity: sha512-WuMQHTPFgEPq4yXA01vgoVI01iNNFmdHK0OTJoVf/PT6fAJWfTwJwV3AKh1Z7wmQqsAnlKVnMh8g7XzJqS0mFg==}
 
-  xrpl-tx-path-parser@1.0.3:
-    resolution: {integrity: sha512-58OslS/qzpii8XvoFg2mMR0Cv/U/NE8tPLJObYuJn36r22AF0VQ3r+sD3hZHZAv1fg33R3uLlHVq0btAWAb6ZA==}
+  xrpl-tx-path-parser@1.0.4:
+    resolution: {integrity: sha512-1qH7a0Ze1lrHUtgjxAjyQw6CcBruDuOnF3U8wIzF9bYlu6ZfTQz+e3DZTkcqCjmdmLE4qhpIP10HEvZ44OMLqg==}
 
   xrpl@2.9.1:
     resolution: {integrity: sha512-4zWxsIRzL7E3XGwR8PpMijUgiRrynwFmNv4H9r/eVO6NDw7TtMQz2Yes+6UNsMtn5mm6MAjjQl4hG0X06h9bqw==}
@@ -4302,9 +4302,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  xrpl-tx-path-parser@1.0.3(bufferutil@4.0.7)(utf-8-validate@5.0.10):
+  xrpl-tx-path-parser@1.0.4(bufferutil@4.0.7)(utf-8-validate@5.0.10):
     dependencies:
       '@xrplkit/txmeta': 1.3.1
+      decimal.js: 10.4.3
       xrpl: 3.0.0(bufferutil@4.0.7)(utf-8-validate@5.0.10)
     transitivePeerDependencies:
       - bufferutil
