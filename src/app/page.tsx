@@ -12,7 +12,7 @@ export default function Home() {
     if (isValidAddress(hashRef.current!.value)){
       router.push(`/account/${hashRef.current!.value}`);
     } else {
-      router.push(`/${hashRef.current!.value}`);
+      router.push(`/tx/${hashRef.current!.value}`);
     }
   };
 

@@ -8,7 +8,7 @@ import ReactFlow, {
   Edge,
   Connection,
 } from "reactflow";
-import { Balance, Currency } from "xrpl/dist/npm/models/common";
+import { Balance } from "xrpl/dist/npm/models/common";
 
 import {
   parseAccount,
@@ -17,58 +17,44 @@ import {
 } from "@/utils/xrpl";
 
 import "reactflow/dist/style.css";
-import { PathFindPathOption } from "xrpl";
-import BigNumber from "bignumber.js";
 
 type PathNode = Node<{ label: string | JSX.Element }>;
 type PathEdge = Edge;
 
-type OfferChange = {
-  takerPaid: Balance;
-  takerGot: Balance;
-};
-type AMMChange = {
-  ammGot: Balance;
-  ammPaid: Balance;
-};
-type AccountChange = {
-  [key: string]: {
-    is_amm: boolean;
-    currency: string;
-    issuer: string | null;
-    previous: string;
-    final: string;
-    change: string;
-  }[];
-};
-
 type Props = {
-  path: PathFindPathOption;
-  offerChanges: OfferChange[];
-  accountChanges: AccountChange;
+  sourceAccount: string,
+  destinationAccount: string,
+  sourceAmount: Balance,
+  destinationAmount: Balance,
+  paths: {
+    from: Balance;
+    to: Balance;
+    rippling?: string,
+    type: {
+      offer: boolean;
+      amm: boolean;
+      rippling: boolean;
+    };
+  }[][]
 };
 
-export const PathFlow: FC<Props> = ({ path, offerChanges, accountChanges }) => {
+export const PathFlow: FC<Props> = ({ sourceAccount, sourceAmount, destinationAccount, destinationAmount, paths }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState<{ label: string | JSX.Element }>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<any>([]);
 
   useEffect(() => {
     let edges: PathEdge[] = [];
-    const source = path.source_amount;
-    const destination = path.destination_amount;
-    const pathsColCount = path.paths_computed.length;
+    const pathsColCount = paths.length
     const pathsRowCount = Math.max(
-      ...path.paths_computed.map((path) => path.length)
+      ...paths.map((path) => path.length)
     );
     const inputNode: PathNode = {
       id: "start",
       type: "input",
       position: { x: 200 * (pathsColCount - 1) * 0.5, y: 0 },
       data: {
-        label:
-          parseCurrencyName(source, { forDisp: true }) +
-          "\n" +
-          parseAmountValue(source),
+        label: <div>{parseCurrencyName(sourceAmount!, { forDisp: true })}<br /><span >{parseAmountValue(sourceAmount!)}</span></div>
+        
       },
     };
     const outputNode: PathNode = {
@@ -79,16 +65,12 @@ export const PathFlow: FC<Props> = ({ path, offerChanges, accountChanges }) => {
         y: 100 * (pathsRowCount + 1),
       },
       data: {
-        label:
-          parseCurrencyName(destination!, { forDisp: true }) +
-          "\n" +
-          parseAmountValue(destination!),
+        label: <div>{parseCurrencyName(destinationAmount!, { forDisp: true })}<br /><span >{parseAmountValue(destinationAmount!)}</span></div>
       },
     };
-    const middleNodes = path.paths_computed
+    const middleNodes = paths
       .map((computed, computedIndex, originalPath) => {
-        let cur_currency: Currency =
-          typeof source === "string" ? { currency: "XRP" } : source;
+        let cur_currency: Balance = sourceAmount;
         return computed.map((step, stepIndex, originalSteps): PathNode => {
           const getId = (stepIdx: number) => computedIndex + "-" + stepIdx;
           const id = getId(stepIndex);
@@ -122,185 +104,32 @@ export const PathFlow: FC<Props> = ({ path, offerChanges, accountChanges }) => {
           if (!isFirst && !isLast) {
           }
 
+          const getEdgeLabel = (balance: Balance) => `${balance.value.replace("-", "")} ${parseCurrencyName(balance, { forDisp: true })}`
+
           const label = (
-            step: PathFindPathOption["paths_computed"][number][number]
           ) => {
-            if (step.issuer || step.currency) {
-              // type: 16(currency) or type: 32(issuer) or type: 48(issuer+currency)
-              const compare = (a: any, b: any) =>
-                (!a.issuer && !b.issuer || a.issuer === b.issuer) && a.currency === b.currency;
-              const offer = offerChanges.find((offerChange) => {
-                return (
-                  compare(offerChange.takerPaid, cur_currency) &&
-                  compare(offerChange.takerGot, step)
-                );
-              });
-              const amm = (() => {
-                const keys = Object.keys(accountChanges);
-                const amm_accounts = keys.filter((key) => {
-                  return accountChanges[key].find((change) => change.is_amm)
-                })
-                const account = amm_accounts.find((account) => {
-                  return accountChanges[account].every((change) => {
-                    return compare(change, step) || compare(change, cur_currency)
-                  })
-                })
-                if (!account) return undefined
-                const _ammGot = accountChanges[account].find((change) => compare(change, cur_currency))!
-                const _ammPaid = accountChanges[account].find((change) => compare(change, step))!
-                return {
-                  ammGot: {
-                    currency: _ammGot.currency,
-                    issuer: _ammGot.issuer || undefined,
-                    value: _ammGot.change,
-                  },
-                  ammPaid: {
-                    currency: _ammPaid.currency,
-                    issuer: _ammPaid.issuer || undefined,
-                    value: _ammPaid.change,
-                  },
-                }
-              })();
+            edges = edges.map((edge) => {
+              if (edge.target !== id) return edge;
+              edge.label = getEdgeLabel(step.from)
+              return edge;
+            });
+            edge.label = getEdgeLabel(step.to);
 
-              const getEdgeLabel = (offer: OfferChange | undefined, amm: AMMChange | undefined) => {
-                if (!offer && !amm) return { got: "0", paid: "0" }
-                let nodeGotCurrencyName = ""
-                let nodeGotValue = ""
-                let nodePaidCurrencyName = ""
-                let nodePaidValue = ""
-                if (offer) {
-                  {
-                    const { currency, issuer, value } = offer.takerPaid
-                    const currencyName = parseCurrencyName(
-                      { currency, issuer } as Currency,
-                      { forDisp: true }
-                    );
-                    nodeGotCurrencyName = currencyName
-                    nodeGotValue = value
-                  }
-                  {
-                    const { currency, issuer, value } = offer.takerGot
-                    const currencyName = parseCurrencyName(
-                      { currency, issuer } as Currency,
-                      { forDisp: true }
-                    );
-                    nodePaidCurrencyName = currencyName
-                    nodePaidValue = value
-                  }
-                }
-                if (amm) {
-                  {
-                    const { currency, issuer, value } = amm.ammGot
-                    const currencyName = parseCurrencyName(
-                      { currency, issuer } as Currency,
-                      { forDisp: true }
-                    );
-                    if (nodeGotCurrencyName !== "") {
-                      if (nodeGotCurrencyName !== currencyName) throw new Error("currencyName is different")
-                    } else {
-                      nodeGotCurrencyName = currencyName
-                    }
-                    if (nodeGotValue === "") {
-                      nodeGotValue = value
-                    } else {
-                      nodeGotValue = BigNumber(nodeGotValue).plus(value).toString()
-                    }
-                  }
-                  {
-                    const { currency, issuer, value } = amm.ammPaid
-                    const currencyName = parseCurrencyName(
-                      { currency, issuer } as Currency,
-                      { forDisp: true }
-                    );
-                    if (nodePaidCurrencyName !== "") {
-                      if (nodePaidCurrencyName !== currencyName) throw new Error("currencyName is different")
-                    } else {
-                      nodePaidCurrencyName = currencyName
-                    }
-                    if (nodePaidValue === "") {
-                      nodePaidValue = value
-                    } else {
-                      nodePaidValue = BigNumber(nodePaidValue).plus(value).toString()
-                    }
-                  }
-                }
-                return {
-                  got: `${nodeGotValue.replace("-", "")} ${nodeGotCurrencyName}`,
-                  paid: `${nodePaidValue.replace("-", "")} ${nodePaidCurrencyName}`
-                }
-              };
-              edges = edges.map((edge) => {
-                if (edge.target !== id) return edge;
-                edge.label = getEdgeLabel(offer, amm).got;
-                return edge;
-              });
-              edge.label = getEdgeLabel(offer, amm).paid;
-
-              const source = parseCurrencyName(cur_currency, { forDisp: true });
-              const dest = parseCurrencyName(step as Currency, {
-                forDisp: true,
-              });
-              const additionalContext = (() => {
-                const hasAMM = !!amm
-                const hasOffer = !!offer
-                if (hasAMM && hasOffer) return "AMM & Offer"
-                if (hasAMM) return "AMM"
-                if (hasOffer) return "Offer"
-                return "　"
-              })()
+            const source = parseCurrencyName(cur_currency, { forDisp: true });
+            const dest = parseCurrencyName(step.to, { forDisp: true, });
+            const additionalContext = (() => {
+              const hasAMM = step.type.amm
+              const hasOffer = step.type.offer
+              if (hasAMM && hasOffer) return "AMM & Offer"
+              if (hasAMM) return "AMM"
+              if (hasOffer) return "Offer"
+              return "　"
+            })()
+            if (step.type.amm || step.type.offer)
               return <div>{source}/{dest}<br /><span style={{ fontSize: '7pt' }}>{additionalContext}</span></div>;
-            }
-            if (step.account) {
-              // type: 1(account)(rippling)
-              const currency = cur_currency.currency;
-              if (accountChanges[step.account]) {
-                const getChange = (
-                  changes: AccountChange[string],
-                  type: "plus" | "minus"
-                ) => {
-                  return changes.find((change) => {
-                    return (
-                      change.currency === currency &&
-                      ((type === "plus" && !change.change.includes("-")) ||
-                        (type === "minus" && change.change.includes("-")))
-                    );
-                  })!;
-                };
-                const changeMinus = getChange(
-                  accountChanges[step.account],
-                  "minus"
-                );
-                const changePlus = getChange(
-                  accountChanges[step.account],
-                  "plus"
-                );
-
-                const getEdgeLabel = (
-                  _change: AccountChange[string][number]
-                ) => {
-                  const { change, currency, issuer } = _change;
-                  const currencyName = parseCurrencyName(
-                    { currency, issuer } as Currency,
-                    { forDisp: true }
-                  );
-                  return `${change.replace("-", "")} ${currencyName}`;
-                };
-                if (edges.find((e) => e.target === id)?.label !== "0") {
-                  edges = edges.map((edge) => {
-                    if (edge.target !== id) return edge;
-                    edge.label = getEdgeLabel(changePlus);
-                    return edge;
-                  });
-                  edge.label = getEdgeLabel(changeMinus);
-                } else {
-                  edge.label = "0";
-                }
-              } else {
-                edge.label = edges.find((e) => e.target === id)?.label || "0";
-              }
-              return <div>{parseAccount(step.account)} <br /><span style={{ fontSize: '7pt'}}>Rippling</span></div>;
-            }
-            return parseCurrencyName(step as Currency, { forDisp: true });
+            if (step.type.rippling)
+              return <div>{parseAccount(step.rippling!)}<br /><span style={{ fontSize: '7pt' }}>Rippling</span></div>;
+            return parseCurrencyName(step.to, { forDisp: true });
           };
           const node = {
             id: computedIndex + "-" + stepIndex,
@@ -309,11 +138,11 @@ export const PathFlow: FC<Props> = ({ path, offerChanges, accountChanges }) => {
               y: 100 * (stepIndex + 1),
             },
             data: {
-              label: label(step),
+              label: label(),
             },
           };
-          if (step.currency) {
-            cur_currency = step as Currency;
+          if (step.to) {
+            cur_currency = step.to;
           }
           edges = [...edges, { ...edge }];
           return node;
@@ -323,13 +152,11 @@ export const PathFlow: FC<Props> = ({ path, offerChanges, accountChanges }) => {
     setNodes([inputNode, ...middleNodes, outputNode]);
     setEdges(edges);
   }, [
-    accountChanges,
-    offerChanges,
-    path.destination_amount,
-    path.paths_computed,
-    path.source_amount,
-    setEdges,
+    sourceAmount,
+    destinationAmount,
+    paths,
     setNodes,
+    setEdges,
   ]);
 
   const onConnect = useCallback(
