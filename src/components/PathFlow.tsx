@@ -125,7 +125,7 @@ export const PathFlow: FC<Props> = ({ sourceAccount, sourceAmount, destinationAc
               if (hasOffer) return "Offer"
               return "　"
             })()
-            if (step.type.amm || step.type.offer)
+            if (!step.type.rippling)//if (step.type.amm || step.type.offer)
               return <div>{source}/{dest}<br /><span style={{ fontSize: '7pt' }}>{additionalContext}</span></div>;
             if (step.type.rippling)
               return <div>{parseAccount(step.rippling!)}<br /><span style={{ fontSize: '7pt' }}>Rippling</span></div>;
